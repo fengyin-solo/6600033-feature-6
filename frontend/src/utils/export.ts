@@ -1,4 +1,3 @@
-import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import type { MCResult, HypTestResult, MCScenario } from '../store/mc'
 
@@ -70,12 +69,12 @@ export async function exportPDFReport(options: ExportPDFOptions) {
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text('蒙特卡洛模拟报告', pageWidth / 2, y, { align: 'center' })
+  doc.text('Monte Carlo Simulation Report', pageWidth / 2, y, { align: 'center' })
   y += 8
 
   doc.setFontSize(11)
   doc.setTextColor(100)
-  doc.text(`报告生成时间: ${new Date().toLocaleString('zh-CN')}`, pageWidth / 2, y, { align: 'center' })
+  doc.text(`Generated: ${new Date().toLocaleString('zh-CN')}`, pageWidth / 2, y, { align: 'center' })
   y += 10
 
   doc.setDrawColor(200)
@@ -85,7 +84,7 @@ export async function exportPDFReport(options: ExportPDFOptions) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(6, 182, 212)
-  doc.text('一、模拟场景', margin, y)
+  doc.text('1. Simulation Scenario', margin, y)
   y += 7
 
   doc.setFont('helvetica', 'normal')
@@ -93,13 +92,13 @@ export async function exportPDFReport(options: ExportPDFOptions) {
   doc.setTextColor(50)
 
   const infoItems = [
-    ['场景名称', scenario.name],
-    ['场景描述', scenario.description],
-    ['迭代次数', result.iterations.toString()],
-    ['估算值', result.estimate.toFixed(6)],
+    ['Scenario', scenario.name],
+    ['Description', scenario.description],
+    ['Iterations', result.iterations.toString()],
+    ['Estimate', result.estimate.toFixed(6)],
   ]
-  if (result.trueValue !== undefined) infoItems.push(['真实值', result.trueValue.toFixed(6)])
-  if (result.error !== undefined) infoItems.push(['误差', result.error.toFixed(6)])
+  if (result.trueValue !== undefined) infoItems.push(['True Value', result.trueValue.toFixed(6)])
+  if (result.error !== undefined) infoItems.push(['Error', result.error.toFixed(6)])
 
   infoItems.forEach(([label, value]) => {
     doc.setTextColor(120)
@@ -113,7 +112,7 @@ export async function exportPDFReport(options: ExportPDFOptions) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(6, 182, 212)
-  doc.text('二、收敛过程', margin, y)
+  doc.text('2. Convergence Process', margin, y)
   y += 7
 
   if (convergenceDataUrl) {
@@ -126,7 +125,7 @@ export async function exportPDFReport(options: ExportPDFOptions) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(6, 182, 212)
-  doc.text('三、样本分布', margin, y)
+  doc.text('3. Sample Distribution', margin, y)
   y += 7
 
   if (histogramDataUrl) {
@@ -145,7 +144,7 @@ export async function exportPDFReport(options: ExportPDFOptions) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
     doc.setTextColor(139, 92, 246)
-    doc.text('四、假设检验结果', margin, y)
+    doc.text('4. Hypothesis Test Result', margin, y)
     y += 7
 
     doc.setFont('helvetica', 'normal')
@@ -153,19 +152,23 @@ export async function exportPDFReport(options: ExportPDFOptions) {
     doc.setTextColor(50)
 
     const testItems = [
-      ['检验类型', testResult.testType],
-      ['统计量 t', testResult.statistic.toString()],
-      ['p 值', testResult.pValue.toString()],
-      ['自由度 df', testResult.df?.toString() || '-'],
-      ['显著性水平 α', testResult.alpha.toString()],
-      ['结论', testResult.significant ? '显著 (p < α)' : '不显著 (p ≥ α)'],
+      ['Test Type', testResult.testType],
+      ['Statistic t', testResult.statistic.toString()],
+      ['p-value', testResult.pValue.toString()],
+      ['Degrees of Freedom', testResult.df?.toString() || '-'],
+      ['Significance Level alpha', testResult.alpha.toString()],
+      ['Conclusion', testResult.significant ? 'Significant (p < alpha)' : 'Not Significant (p >= alpha)'],
     ]
 
     testItems.forEach(([label, value]) => {
       doc.setTextColor(120)
       doc.text(label, margin + 5, y)
-      doc.setTextColor(testResult.significant ? 239 : 34, testResult.significant ? 68 : 197, testResult.significant ? 68 : 94, 0)
-      doc.text(value, margin + 50, y)
+      if (label === 'Conclusion') {
+        doc.setTextColor(testResult.significant ? 220 : 34, testResult.significant ? 38 : 197, testResult.significant ? 38 : 94)
+      } else {
+        doc.setTextColor(30)
+      }
+      doc.text(value, margin + 55, y)
       y += 6
     })
     y += 4
@@ -179,7 +182,7 @@ export async function exportPDFReport(options: ExportPDFOptions) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(6, 182, 212)
-  doc.text('五、结论摘要', margin, y)
+  doc.text('5. Conclusion Summary', margin, y)
   y += 7
 
   doc.setFont('helvetica', 'normal')
@@ -192,22 +195,29 @@ export async function exportPDFReport(options: ExportPDFOptions) {
       doc.addPage()
       y = margin
     }
-    doc.text(`• ${line}`, margin + 5, y)
-    y += 6
+    const wrapped = doc.splitTextToSize(line, pageWidth - margin * 2 - 5)
+    wrapped.forEach((wline: string) => {
+      if (y + 6 > 280) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(`- ${wline}`, margin + 5, y)
+      y += 6
+    })
   })
 
-  doc.save(`${scenario.name}_模拟报告.pdf`)
+  doc.save(`${scenario.name}_Report.pdf`)
 }
 
 function generateConclusions(result: MCResult, scenario: MCScenario, testResult: HypTestResult | null): string[] {
   const conclusions: string[] = []
 
-  conclusions.push(`本次${scenario.name}模拟共执行 ${result.iterations} 次迭代。`)
-  conclusions.push(`蒙特卡洛估算结果为 ${result.estimate.toFixed(6)}。`)
+  conclusions.push(`${scenario.name} simulation completed with ${result.iterations} iterations.`)
+  conclusions.push(`Monte Carlo estimate: ${result.estimate.toFixed(6)}.`)
 
   if (result.trueValue !== undefined && result.error !== undefined) {
     const relError = (result.error / result.trueValue * 100).toFixed(4)
-    conclusions.push(`与真实值 ${result.trueValue.toFixed(6)} 相比，绝对误差为 ${result.error.toFixed(6)}，相对误差为 ${relError}%。`)
+    conclusions.push(`Compared to true value ${result.trueValue.toFixed(6)}, absolute error is ${result.error.toFixed(6)}, relative error is ${relError}%.`)
   }
 
   if (result.convergence.length > 10) {
@@ -215,29 +225,21 @@ function generateConclusions(result: MCResult, scenario: MCScenario, testResult:
     const avg = lastTen.reduce((a, b) => a + b, 0) / lastTen.length
     const variance = lastTen.reduce((s, v) => s + (v - avg) ** 2, 0) / lastTen.length
     if (variance < 0.01) {
-      conclusions.push('收敛过程稳定，结果具有较好的可信度。')
+      conclusions.push('Convergence is stable, results are reliable.')
     } else {
-      conclusions.push('收敛过程波动较大，建议增加迭代次数以提高精度。')
+      conclusions.push('Convergence shows high variance, consider increasing iterations for better precision.')
     }
   }
 
   if (testResult) {
     if (testResult.significant) {
-      conclusions.push(`假设检验结果显示 p = ${testResult.pValue} < α = ${testResult.alpha}，两组样本存在显著差异。`)
+      conclusions.push(`Hypothesis test: p = ${testResult.pValue} < alpha = ${testResult.alpha}, significant difference between groups.`)
     } else {
-      conclusions.push(`假设检验结果显示 p = ${testResult.pValue} ≥ α = ${testResult.alpha}，两组样本无显著差异。`)
+      conclusions.push(`Hypothesis test: p = ${testResult.pValue} >= alpha = ${testResult.alpha}, no significant difference between groups.`)
     }
   }
 
-  conclusions.push('本报告由蒙特卡洛模拟与统计假设检验平台自动生成。')
+  conclusions.push('Report generated by Monte Carlo Simulation and Statistical Hypothesis Testing Platform.')
 
   return conclusions
-}
-
-export function elementToCanvas(element: HTMLElement): Promise<HTMLCanvasElement> {
-  return html2canvas(element, {
-    backgroundColor: '#0f172a',
-    scale: 2,
-    useCORS: true,
-  })
 }

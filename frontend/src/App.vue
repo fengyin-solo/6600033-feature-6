@@ -26,11 +26,28 @@
         </div>
         <div v-if="store.result" class="bg-slate-800 rounded-lg p-4 border border-slate-700 text-sm">
           <h3 class="text-sm font-bold text-slate-400 mb-3">模拟结果</h3>
-          <div class="space-y-2">
+          <div class="space-y-2 mb-4">
             <div class="flex justify-between"><span class="text-slate-500">估算值</span><span class="text-cyan-400 font-bold font-mono">{{ store.result.estimate.toFixed(6) }}</span></div>
             <div v-if="store.result.trueValue !== undefined" class="flex justify-between"><span class="text-slate-500">真实值</span><span class="text-green-400 font-mono">{{ store.result.trueValue.toFixed(6) }}</span></div>
             <div v-if="store.result.error !== undefined" class="flex justify-between"><span class="text-slate-500">误差</span><span class="text-orange-400 font-mono">{{ store.result.error.toFixed(6) }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500">样本数</span><span class="text-slate-300">{{ store.result.iterations }}</span></div>
+          </div>
+          <div class="border-t border-slate-700 pt-3">
+            <h3 class="text-sm font-bold text-slate-400 mb-2">导出结果</h3>
+            <div class="grid grid-cols-2 gap-2">
+              <button @click="handleExportPDF" :disabled="isExportingPDF" class="py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded text-xs font-bold">
+                {{ isExportingPDF ? '导出中...' : '📄 PDF报告' }}
+              </button>
+              <button @click="handleExportCSV" class="py-1.5 bg-green-600 hover:bg-green-500 rounded text-xs font-bold">
+                📊 CSV数据
+              </button>
+              <button @click="handleExportConvergenceImg" class="py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold">
+                📈 收敛图
+              </button>
+              <button @click="handleExportHistogramImg" class="py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold">
+                📉 直方图
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -72,12 +89,14 @@
 import { ref, watch, onMounted } from 'vue'
 import * as echarts from 'echarts'
 import { useMCStore, SCENARIOS } from './store/mc'
+import { exportChartAsImage, exportCSV, exportPDFReport } from './utils/export'
 
 const store = useMCStore()
 const convergenceRef = ref<HTMLDivElement | null>(null)
 const histogramRef = ref<HTMLDivElement | null>(null)
 const group1Input = ref('5.1,4.8,5.3,4.9,5.2,5.0,4.7,5.1,5.4,4.8')
 const group2Input = ref('4.6,4.2,4.9,4.3,4.5,4.7,4.4,4.8,4.1,4.6')
+const isExportingPDF = ref(false)
 let convChart: echarts.ECharts | null = null
 let histChart: echarts.ECharts | null = null
 
@@ -113,6 +132,42 @@ function runTest() {
   const g1 = group1Input.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
   const g2 = group2Input.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
   if (g1.length > 1 && g2.length > 1) store.runTest(g1, g2)
+}
+
+function handleExportConvergenceImg() {
+  if (convChart && store.result) {
+    exportChartAsImage(convChart, `${store.currentScenario.name}_收敛图.png`)
+  }
+}
+
+function handleExportHistogramImg() {
+  if (histChart && store.result) {
+    exportChartAsImage(histChart, `${store.currentScenario.name}_直方图.png`)
+  }
+}
+
+function handleExportCSV() {
+  if (store.result) {
+    exportCSV(store.result, store.currentScenario)
+  }
+}
+
+async function handleExportPDF() {
+  if (!store.result || !convChart || !histChart) return
+  isExportingPDF.value = true
+  try {
+    const convDataUrl = convChart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#ffffff' })
+    const histDataUrl = histChart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#ffffff' })
+    await exportPDFReport({
+      result: store.result,
+      scenario: store.currentScenario,
+      testResult: store.testResult,
+      convergenceDataUrl: convDataUrl,
+      histogramDataUrl: histDataUrl,
+    })
+  } finally {
+    isExportingPDF.value = false
+  }
 }
 
 onMounted(() => { initCharts(); store.runSimulation() })
